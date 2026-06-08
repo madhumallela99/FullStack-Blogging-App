@@ -1,29 +1,111 @@
-pipeline { 
+pipeline {
     agent any
-    
+
     tools {
+        jdk 'java21'
         maven 'maven3'
-        jdk 'jdk17'
+    }
+
+    environment {
+        SCANNER_HOME = tool 'sonar-scanner'
     }
 
     stages {
-        
+
+        stage('Git Checkout') {
+            steps {
+                git branch: 'main',
+                url: 'https://github.com/madhumallela99/FullStack-Blogging-App.git'
+            }
+        }
+
         stage('Compile') {
             steps {
-            sh  "mvn compile"
+                sh 'mvn clean compile'
             }
         }
-        
-        stage('Test') {
+
+        stage('Unit Test & JaCoCo') {
             steps {
-                sh "mvn test"
+                sh 'mvn test'
             }
         }
-        
-        stage('Package') {
+
+        stage('SonarQube Analysis') {
             steps {
-                sh "mvn package"
+                withSonarQubeEnv('sonar-server') {
+
+                    sh """
+                    $SCANNER_HOME/bin/sonar-scanner \
+                    -Dsonar.projectKey=blogging-app \
+                    -Dsonar.projectName=blogging-app \
+                    -Dsonar.sources=src \
+                    -Dsonar.java.binaries=target/classes
+                    """
+                }
             }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Trivy FS Scan') {
+            steps {
+                sh '''
+                trivy fs \
+                --format table \
+                . > trivy-fs-report.txt
+                '''
+            }
+        }
+
+        stage('Build Artifact') {
+            steps {
+                sh 'mvn package -DskipTests'
+            }
+        }
+
+        stage('Publish Artifact To Nexus') {
+            steps {
+                withMaven(
+                    globalMavenSettingsConfig: 'maven-settings',
+                    jdk: 'java21',
+                    maven: 'maven3',
+                    traceability: true
+                ) {
+                    sh 'mvn deploy -DskipTests'
+                }
+            }
+        }
+
+    }
+
+    post {
+
+        always {
+
+            archiveArtifacts(
+                artifacts: 'trivy-fs-report.txt',
+                allowEmptyArchive: true
+            )
+
+            archiveArtifacts(
+                artifacts: 'target/site/jacoco/*',
+                allowEmptyArchive: true
+            )
+        }
+
+        success {
+            echo 'Pipeline executed successfully'
+        }
+
+        failure {
+            echo 'Pipeline failed'
         }
     }
 }
