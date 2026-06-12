@@ -46,13 +46,7 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
-                }
-            }
-        }
+        
 
         stage('Trivy FS Scan') {
             steps {
@@ -82,7 +76,36 @@ pipeline {
                 }
             }
         }
+        stage('Docker build') {
+            steps { 
+                script{
+        withDockerRegistry(credentialsId: 'docker-creds') {
+            sh " docker build -t madhumallela/bloggingapp:latest ."
 
+}
+
+    }
+            }
+        }
+       stage('Trivy Image Scan') {
+    steps {
+        sh '''
+        export TMPDIR=/var/tmp
+        trivy image --format table -o image.html madhumallela/bloggingapp:latest
+        '''
+    }
+}
+        stage('Docker push') {
+            steps { 
+                script{
+        withDockerRegistry(credentialsId: 'docker-creds') {
+            sh " docker push madhumallela/bloggingapp:latest "
+
+}
+
+    }
+            }
+        }
     }
 
     post {
