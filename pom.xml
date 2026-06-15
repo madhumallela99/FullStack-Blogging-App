@@ -142,14 +142,14 @@
         <repository>
             <id>maven-releases</id>
             <url>
-               http://43.204.116.81:8081/repository/maven-releases/
+               http://15.207.14.210:8081/repository/maven-releases/
             </url>
         </repository>
 
         <snapshotRepository>
             <id>maven-snapshots</id>
             <url>
-               http://43.204.116.81:8081/repository/maven-snapshots/
+               http://15.207.14.210:8081/repository/maven-snapshots/
             </url>
         </snapshotRepository>
 
